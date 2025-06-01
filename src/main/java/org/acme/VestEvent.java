@@ -1,17 +1,14 @@
 package org.acme;
 
-import io.quarkus.hibernate.reactive.panache.PanacheEntity;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.util.Date;
 
 @Getter
-@Entity
-public class VestEvent extends PanacheEntity {
+@Setter
+public class VestEvent {
 
-    @Id
     private String       eventId;
     private String       objectId;
     private long         version;
