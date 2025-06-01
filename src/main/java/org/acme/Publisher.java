@@ -6,15 +6,14 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import lombok.val;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 import java.util.Date;
 
 @ApplicationScoped
 public class Publisher {
 
-    private final static Logger logger = LoggerFactory.getLogger(Consumer.class);
+    private final static Logger logger = Logger.getLogger(Consumer.class);
 
     @ConsumeEvent("publisher")
     public Uni<Void> send(final VestEvent vestEvent) {

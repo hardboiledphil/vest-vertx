@@ -7,13 +7,12 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class Consumer {
 
-    private final static Logger logger = LoggerFactory.getLogger(Consumer.class);
+    private final static Logger logger = Logger.getLogger(Consumer.class);
 
     @Inject
     EventBus eventBus;
@@ -32,7 +31,7 @@ public class Consumer {
         // send the vest event to the sequencer
         System.out.println("sending message to the sequencer");
         eventBus.send("incoming", vestEvent);
-        logger.info("Sent event to sequencer: {}", vestEvent.getObjectId());
+        logger.info("Sent event to sequencer: " + vestEvent.getObjectId());
     }
 
     public void onStart(@Observes StartupEvent event) {

@@ -6,8 +6,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 import java.util.Date;
 import java.util.Map;
@@ -16,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Singleton
 public class Sequencer {
 
-    private final static Logger logger = LoggerFactory.getLogger(Consumer.class);
+    private final static Logger logger = Logger.getLogger(Consumer.class);
 
     @Inject
     EventBus eventBus;
@@ -37,7 +36,7 @@ public class Sequencer {
         String key = event.getObjectId() + "_" + event.getVersion();
 
         if (vestEventMap.containsKey(key)) {
-            logger.error("Duplicate event detected for {} - skipping event processing", key);
+            logger.error("Duplicate event detected for " + key  + " - skipping event processing");
             return;
         }
 
@@ -53,14 +52,15 @@ public class Sequencer {
             VestEvent previousEvent = vestEventMap.get(previousKey);
             
             if (previousEvent == null || previousEvent.getState() != ProcessingState.VEST_PROCESSED) {
-                logger.info("Cannot process version {} for object {} as previous version is not processed", event.getVersion(), event.getObjectId());
+                logger.info("Cannot process version " + event.getVersion()
+                                + " for object "+ event.getObjectId() + " as previous version is not processed");
                 return;
             }
         }
 
         eventBus.send("publisher", event);
 
-        logger.info("Event processed by sequencer: {}", key);
+        logger.info("Event processed by sequencer: " + key);
     }
 
     protected void updateEventState(String objectId, long version, ProcessingState newState) {
@@ -68,7 +68,7 @@ public class Sequencer {
         VestEvent event = vestEventMap.get(key);
         if (event != null) {
             event.setState(newState);
-            logger.info("Updated state for {} to {}", key, newState);
+            logger.info("Updated state for " + key + " to " + newState);
         }
     }
 

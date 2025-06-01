@@ -5,15 +5,17 @@ import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
-import lombok.extern.slf4j.Slf4j;
+import org.jboss.logging.Logger;
 
 import javax.xml.XMLConstants;
 import javax.xml.validation.SchemaFactory;
 import java.util.Date;
 
 @ApplicationScoped
-@Slf4j
 public class Transformer {
+
+    private final static Logger logger = Logger.getLogger(Transformer.class);
+
     @ConsumeEvent("transformer")
     public Uni<Void> transform(VestEvent event) {
         try {
@@ -27,11 +29,11 @@ public class Transformer {
             event.setTransformedXml(transformedXml);
             event.setState(ProcessingState.VEST_PROCESSED);
 
-            log.info("Successfully transformed and validated XML for event: {}", event.getEventId());
+            logger.info("Successfully transformed and validated XML for event: " + event.getEventId());
             
             return Uni.createFrom().voidItem();
         } catch (Exception e) {
-            log.error("Error processing event: {}", event.getEventId(), e);
+            logger.error("Error processing event: {}", event.getEventId(), e);
             return Uni.createFrom().failure(e);
         }
     }
@@ -47,6 +49,6 @@ public class Transformer {
 
     void onStart(@Observes StartupEvent event) {
         System.out.println("Transformer is starting up at " + new Date());
-        log.info("Application starting up, initializing Transformer...");
+        logger.info("Application starting up, initializing Transformer...");
     }
 } 

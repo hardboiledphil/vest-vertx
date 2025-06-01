@@ -4,13 +4,12 @@ import io.quarkus.runtime.Quarkus;
 import io.quarkus.runtime.QuarkusApplication;
 import io.quarkus.runtime.annotations.QuarkusMain;
 import jakarta.inject.Inject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 @QuarkusMain
 public class Main implements QuarkusApplication {
 
-    private final static Logger logger = LoggerFactory.getLogger(Main.class);
+    private final static Logger logger = Logger.getLogger(Main.class);
 
     @Inject
     Consumer consumer;
@@ -32,10 +31,10 @@ public class Main implements QuarkusApplication {
     public int run(String... args) throws Exception {
         logger.info("Starting application...");
         // The Consumer will be instantiated here due to the @Inject
-        logger.info("Consumer initialized {}", consumer != null ? "successfully" : "failed");
-        logger.info("Sequencer initialized {}", sequencer != null ? "successfully" : "failed");
-        logger.info("Transformer initialized {}", transformer != null ? "successfully" : "failed");
-        logger.info("Publisher initialized {}", publisher != null ? "successfully" : "failed");
+        logger.info("Consumer initialized " +  consumer != null ? "successfully" : "failed");
+        logger.info("Sequencer initialized " + sequencer != null ? "successfully" : "failed");
+        logger.info("Transformer initialized " + transformer != null ? "successfully" : "failed");
+        logger.info("Publisher initialized " + publisher != null ? "successfully" : "failed");
         // trigger the sequencer to start processing
         sequencer.triggerSomething();
         Quarkus.waitForExit();
