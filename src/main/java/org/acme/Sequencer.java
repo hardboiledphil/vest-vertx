@@ -77,21 +77,23 @@ public class Sequencer {
                             logger.error("Failed to process event in transformer: {}", event.getObjectId(), failure);
                         });
 
-//        // Check if we can process this version
-//        if (event.getVersion() > 1) {
-//            String previousKey = event.getObjectId() + "_" + (event.getVersion() - 1);
-//            VestEvent previousEvent = vestEventMap.get(previousKey);
-//
-//            if (previousEvent == null || previousEvent.getState() != ProcessingState.VEST_PROCESSED) {
-//                logger.info("Cannot process version {} for object {} as previous version is not processed", event.getVersion(), event.getObjectId());
-//                return;
-//            }
-//        }
-
         logger.info("Event processed by sequencer: {}", key);
     }
 
     protected void sendToProducer(VestEvent event) {
+
+        //        // Check if we can process this version
+        if (event.getVersion() > 1) {
+            String previousKey = event.getObjectId() + "_" + (event.getVersion() - 1);
+            VestEvent previousEvent = vestEventMap.get(previousKey);
+
+            if (previousEvent == null || previousEvent.getState() != ProcessingState.APP_PROCESSED) {
+                logger.info("Cannot publish object {} version {} as previous version is not processed",
+                        event.getObjectId(), event.getVersion());
+                return;
+            }
+        }
+
         eventBus.request(PUBLISH_EVENTS, event)
                 .subscribe().with(response -> {
                             // handle the response
