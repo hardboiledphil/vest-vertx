@@ -5,11 +5,15 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Date;
 
 @Path("/event/send")
 public class WebResource {
+
+    private final static Logger logger = LoggerFactory.getLogger(WebResource.class);
 
     @Inject
     EventBus eventBus;

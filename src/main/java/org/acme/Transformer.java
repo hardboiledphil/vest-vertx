@@ -7,6 +7,8 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.xml.XMLConstants;
 import javax.xml.validation.SchemaFactory;
@@ -17,6 +19,8 @@ import static java.lang.Thread.sleep;
 @ApplicationScoped
 @Slf4j
 public class Transformer {
+
+    private final static Logger logger = LoggerFactory.getLogger(Transformer.class);
 
     @ConsumeEvent("transformer")
     @Blocking

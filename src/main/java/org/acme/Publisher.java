@@ -14,7 +14,7 @@ import java.util.Date;
 @ApplicationScoped
 public class Publisher {
 
-    private final static Logger logger = LoggerFactory.getLogger(Consumer.class);
+    private final static Logger logger = LoggerFactory.getLogger(Publisher.class);
 
     @ConsumeEvent("publisher")
     public Uni<Void> send(final VestEvent vestEvent) {

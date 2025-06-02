@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Singleton
 public class Sequencer {
 
-    private final static Logger logger = LoggerFactory.getLogger(Consumer.class);
+    private final static Logger logger = LoggerFactory.getLogger(Sequencer.class);
 
     @Inject
     EventBus eventBus;
