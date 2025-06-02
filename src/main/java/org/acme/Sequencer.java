@@ -13,6 +13,11 @@ import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.acme.Channels.INCOMING_EVENTS;
+import static org.acme.Channels.PUBLISH_EVENTS;
+import static org.acme.Channels.TRANSFORM_EVENTS;
+import static org.acme.ProcessingState.PUBLISHED;
+
 @Singleton
 public class Sequencer {
 
@@ -21,65 +26,92 @@ public class Sequencer {
     @Inject
     EventBus eventBus;
 
-    private final Map<String, VestEvent> vestEventMap = new ConcurrentHashMap<>();
+    final Map<String, VestEvent> vestEventMap = new ConcurrentHashMap<>();
 
-    @ConsumeEvent("incoming")
+    @ConsumeEvent(INCOMING_EVENTS)
     protected void handleIncomingEvent(VestEvent event) {
-        System.out.println("Received event at Sequencer: " + event.getObjectId() + " version: " + event.getVersion());
+        logger.info("Received event at Sequencer: {} version: {} state: {}",
+                event.getObjectId(), event.getVersion(), event.getState());
         try {
-            processEvent(event);
+            switch (event.getState()) {
+                case FRESH -> initProcessEvent(event);
+                case TRANSFORMED -> sendToProducer(event);
+                case PUBLISHED -> logger.info("Event publish completed for {} version {}",
+                        event.getObjectId(), event.getVersion());
+                case ACK_RECEIVED -> logger.info("Ack received for {} version {} state: {}",
+                        event.getObjectId(), event.getVersion(), event.getState());
+                case APP_PROCESSED -> event.setState(ProcessingState.APP_PROCESSED);
+                default -> {
+                    logger.warn("Received event with unexpected state: {}", event.getState());
+                    return; // Ignore events that are not in the expected state
+                }
+            }
         } catch (Exception e) {
             logger.error("Error processing incoming message", e);
         }
     }
 
-    protected void processEvent(VestEvent event) {
+    protected void initProcessEvent(VestEvent event) {
         String key = event.getObjectId() + "_" + event.getVersion();
 
         if (vestEventMap.containsKey(key)) {
             logger.error("Duplicate event detected for {} - skipping event processing", key);
             return;
         }
+        event.setState(ProcessingState.SEQUENCED);
 
         // Store the event
         vestEventMap.put(key, event);
         logger.info("map now contains: {}", vestEventMap.toString());
 
         // Forward to transformer
-        eventBus.send("transformer", event);
+        eventBus.request(TRANSFORM_EVENTS, event)
+                .subscribe().with(response -> {
+                            // handle the response
+                            VestEvent event1 = (VestEvent) response.body();
+                            logger.info("Message received from transform process - send back to sequencer: {}", event1.getObjectId());
+                            eventBus.send(INCOMING_EVENTS, event1);
+                        },
+                        failure -> {
+                            // handle the failure
+                            logger.error("Failed to process event in transformer: {}", event.getObjectId(), failure);
+                        });
 
-        // Check if we can process this version
-        if (event.getVersion() > 1) {
-            String previousKey = event.getObjectId() + "_" + (event.getVersion() - 1);
-            VestEvent previousEvent = vestEventMap.get(previousKey);
-            
-            if (previousEvent == null || previousEvent.getState() != ProcessingState.VEST_PROCESSED) {
-                logger.info("Cannot process version {} for object {} as previous version is not processed", event.getVersion(), event.getObjectId());
-                return;
-            }
-        }
-
-        eventBus.send("publisher", event);
+//        // Check if we can process this version
+//        if (event.getVersion() > 1) {
+//            String previousKey = event.getObjectId() + "_" + (event.getVersion() - 1);
+//            VestEvent previousEvent = vestEventMap.get(previousKey);
+//
+//            if (previousEvent == null || previousEvent.getState() != ProcessingState.VEST_PROCESSED) {
+//                logger.info("Cannot process version {} for object {} as previous version is not processed", event.getVersion(), event.getObjectId());
+//                return;
+//            }
+//        }
 
         logger.info("Event processed by sequencer: {}", key);
     }
 
-    protected void updateEventState(String objectId, long version, ProcessingState newState) {
-        String key = objectId + "_" + version;
-        VestEvent event = vestEventMap.get(key);
-        if (event != null) {
-            event.setState(newState);
-            logger.info("Updated state for {} to {}", key, newState);
-        }
+    protected void sendToProducer(VestEvent event) {
+        eventBus.request(PUBLISH_EVENTS, event)
+                .subscribe().with(response -> {
+                            // handle the response
+                            VestEvent event1 = (VestEvent) response.body();
+                            logger.info("Message received from producer process - send back to sequencer: {}", event1.getObjectId());
+                            event1.setState(PUBLISHED);
+                            eventBus.send(INCOMING_EVENTS, event1);
+                        },
+                        failure -> {
+                            // handle the failure
+                            logger.error("Failed to process event in producer: {}", event.getObjectId(), failure);
+                        });
     }
 
     void onStart(@Observes StartupEvent event) {
-        System.out.println("Sequencer is starting up at " + new Date());
         logger.info("Application starting up, initializing Sequencer...");
     }
 
-    public void triggerSomething() {
-        System.out.println("Sequencer hashmap has a count of  " + this.vestEventMap.size());
-        System.out.println("Sequencer hashmap {}" + this.vestEventMap.toString());
-    }
+//    public void triggerSomething() {
+//        System.out.println("Sequencer hashmap has a count of  " + this.vestEventMap.size());
+//        System.out.println("Sequencer hashmap {}" + this.vestEventMap.toString());
+//    }
 }

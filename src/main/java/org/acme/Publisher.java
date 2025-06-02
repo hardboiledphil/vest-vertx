@@ -11,20 +11,24 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Date;
 
+import static org.acme.Channels.PUBLISH_EVENTS;
+import static org.acme.ProcessingState.PUBLISHED;
+
 @ApplicationScoped
 public class Publisher {
 
     private final static Logger logger = LoggerFactory.getLogger(Publisher.class);
 
-    @ConsumeEvent("publisher")
-    public Uni<Void> send(final VestEvent vestEvent) {
+    @ConsumeEvent(PUBLISH_EVENTS)
+    public Uni<VestEvent> send(final VestEvent vestEvent) {
 
         // Send the transformed XML to the appropriate queue
         val targetQueue = vestEvent.getTargetQueueName();
         val transformedXml = vestEvent.getTransformedXml();
-
-        logger.info("Pretending to send transformed XML to queue: " + targetQueue);
-        return Uni.createFrom().voidItem();
+        vestEvent.setTransformedXml(vestEvent.getTransformedXml());
+        vestEvent.setState(PUBLISHED);
+        logger.info("Pretending to send transformed XML to queue: {}", targetQueue);
+        return Uni.createFrom().item(vestEvent);
     }
 
     public void onStart(@Observes StartupEvent event) {

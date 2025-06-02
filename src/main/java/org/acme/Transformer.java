@@ -15,6 +15,7 @@ import javax.xml.validation.SchemaFactory;
 import java.util.Date;
 
 import static java.lang.Thread.sleep;
+import static org.acme.Channels.TRANSFORM_EVENTS;
 
 @ApplicationScoped
 @Slf4j
@@ -22,9 +23,9 @@ public class Transformer {
 
     private final static Logger logger = LoggerFactory.getLogger(Transformer.class);
 
-    @ConsumeEvent("transformer")
+    @ConsumeEvent(TRANSFORM_EVENTS)
     @Blocking
-    public Uni<Void> transform(VestEvent event) {
+    public Uni<VestEvent> transform(VestEvent event) {
         try {
             // TODO: Implement actual XSLT transformation here
             String transformedXml = event.getInputXml(); // Placeholder for actual transformation
@@ -32,15 +33,15 @@ public class Transformer {
             // Validate against XSD
             validateXml(transformedXml);
 
-            sleep(2000);
+            sleep(100);
 
             // Update event with transformed XML
             event.setTransformedXml(transformedXml);
-            event.setState(ProcessingState.VEST_PROCESSED);
+            event.setState(ProcessingState.TRANSFORMED);
 
-            log.info("Successfully transformed and validated XML for event: {}", event.getEventId());
-            
-            return Uni.createFrom().voidItem();
+            log.info("Successfully transformed and validated XML for event: {}", event.getObjectId());
+
+            return Uni.createFrom().item(event);
         } catch (Exception e) {
             log.error("Error processing event: {}", event.getEventId(), e);
             return Uni.createFrom().failure(e);

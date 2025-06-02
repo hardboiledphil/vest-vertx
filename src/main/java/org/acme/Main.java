@@ -37,7 +37,7 @@ public class Main implements QuarkusApplication {
         logger.info("Transformer initialized {}", transformer != null ? "successfully" : "failed");
         logger.info("Publisher initialized {}", publisher != null ? "successfully" : "failed");
         // trigger the sequencer to start processing
-        sequencer.triggerSomething();
+//        sequencer.triggerSomething();
         Quarkus.waitForExit();
         return 0;
     }
