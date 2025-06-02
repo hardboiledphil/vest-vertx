@@ -2,6 +2,7 @@ package org.acme;
 
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -11,10 +12,14 @@ import javax.xml.XMLConstants;
 import javax.xml.validation.SchemaFactory;
 import java.util.Date;
 
+import static java.lang.Thread.sleep;
+
 @ApplicationScoped
 @Slf4j
 public class Transformer {
+
     @ConsumeEvent("transformer")
+    @Blocking
     public Uni<Void> transform(VestEvent event) {
         try {
             // TODO: Implement actual XSLT transformation here
@@ -22,7 +27,9 @@ public class Transformer {
             
             // Validate against XSD
             validateXml(transformedXml);
-            
+
+            sleep(2000);
+
             // Update event with transformed XML
             event.setTransformedXml(transformedXml);
             event.setState(ProcessingState.VEST_PROCESSED);

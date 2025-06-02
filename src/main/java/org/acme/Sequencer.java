@@ -43,6 +43,7 @@ public class Sequencer {
 
         // Store the event
         vestEventMap.put(key, event);
+        logger.info("map now contains: {}", vestEventMap.toString());
 
         // Forward to transformer
         eventBus.send("transformer", event);
