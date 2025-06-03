@@ -8,8 +8,6 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -122,6 +120,7 @@ public class Processor {
                                 VestEvent event1 = (VestEvent) response.body();
                                 logger.info("Message received from producer process - send back to processor: {} version: {}",
                                         event1.getObjectId(), event1.getVersion());
+                                // get the source vest event from the history map
                                 var vestEvent = vestEventHistoryMap.get(event.getObjectId()).getVestEventsMap().
                                         get(event1.getVersion());
                                 vestEvent.setState(PUBLISHED);
@@ -177,10 +176,10 @@ public class Processor {
                         entry.getKey() == vestEventHistory.getLastProcessedVersion() + 1
                                 && entry.getValue().getState() == ProcessingState.TRANSFORMED)
                 .findFirst().ifPresent(nextEvent -> {
-                    logger.info("Next event to process is: {} version: {}",
+                    logger.info("Sending next event objectid: {} version: {} to producer for publishing",
                             nextEvent.getValue().getObjectId(), nextEvent.getValue().getVersion());
                     // Send the next event to the producer so it can trigger publishing
-                    eventBus.send(INCOMING_EVENTS, nextEvent);
+                    eventBus.send(INCOMING_EVENTS, nextEvent.getValue());
                 });
     }
 
