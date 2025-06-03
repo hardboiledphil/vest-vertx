@@ -22,14 +22,14 @@ public class Consumer {
 
     public void sendToSequencer() {
         logger.info("Sending to processor");
-        
+
         // create a vest event
-        VestEvent vestEvent = new VestEvent();
-        vestEvent.setObjectId("ABC123");
-        vestEvent.setVersion(1);
-        vestEvent.setInputXml("<test>Sample XML</test>");
-        vestEvent.setCreated(new Date());
-        vestEvent.setState(ProcessingState.FRESH);
+        VestEvent vestEvent = VestEvent.builder()
+                .version(1)
+                .inputXml("<test>Sample XML</test>")
+                .created(new Date())
+                .state(ProcessingState.FRESH)
+                .build();
 
         // send the vest event to the processor
         System.out.println("sending message to the processor");
@@ -40,6 +40,5 @@ public class Consumer {
     public void onStart(@Observes StartupEvent event) {
         System.out.println("Consumer is starting up at " + new Date());
         logger.info("Application starting up, initializing consumer...");
-//        sendToSequencer();
     }
 }

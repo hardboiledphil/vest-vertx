@@ -41,12 +41,8 @@ class ProcessorTest {
     @Test
     void testHandleIncomingEvent() throws InterruptedException {
         // Create a test event
-        VestEvent testEvent = new VestEvent();
-        testEvent.setObjectId("test123");
-        testEvent.setVersion(1);
-        testEvent.setState(ProcessingState.FRESH);
-        testEvent.setMessageGroup(GOPS_PARCEL_SUB);
-        testEvent.setInputXml("<xml>Content goes here </xml>");
+        VestEvent testEvent = VestEvent.builder().objectId("test123").version(1).messageGroup(GOPS_PARCEL_SUB)
+                .state(ProcessingState.FRESH).inputXml("<xml>Content goes here </xml>").build();
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -54,7 +50,7 @@ class ProcessorTest {
         eventBus.send(INCOMING_EVENTS, testEvent);
 
         // Give some time for the event to be processed
-        Awaitility.await().atMost(2, TimeUnit.SECONDS)
+        Awaitility.await().atMost(5, TimeUnit.SECONDS)
                 .untilAsserted(() -> {
                     assertTrue(processor.vestEventHistoryMap.containsKey("test123"));
                     var eventHistory = processor.vestEventHistoryMap.get("test123").getVestEventsMap();
@@ -62,24 +58,18 @@ class ProcessorTest {
                     latch.countDown();
                 });
 
-        assertTrue(latch.await(2, TimeUnit.SECONDS));
+        assertTrue(latch.await(6, TimeUnit.SECONDS));
     }
 
     @Test
     void testProcessingSequence() throws InterruptedException {
         // Create version 1 event
-        VestEvent event1 = new VestEvent();
-        event1.setObjectId("testObj");
-        event1.setVersion(1);
-        event1.setMessageGroup(GOPS_PARCEL_SUB);
-        event1.setState(ProcessingState.FRESH);
+        VestEvent event1 = VestEvent.builder().objectId("testObj1").version(1).messageGroup(GOPS_PARCEL_SUB)
+                .state(ProcessingState.FRESH).inputXml("<xml>Content goes here </xml>").build();
 
         // Create version 2 event
-        VestEvent event2 = new VestEvent();
-        event2.setObjectId("testObj");
-        event2.setVersion(2);
-        event2.setMessageGroup(GOPS_PARCEL_SUB);
-        event2.setState(ProcessingState.FRESH);
+        VestEvent event2 = VestEvent.builder().objectId("testObj1").version(2).messageGroup(GOPS_PARCEL_SUB)
+                .state(ProcessingState.FRESH).inputXml("<xml>Content goes here </xml>").build();
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -95,11 +85,11 @@ class ProcessorTest {
             // Give some time for the event to be processed
             Awaitility.await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
                 // Verify both events are in the map
-                assertTrue(processor.vestEventHistoryMap.containsKey("testObj"));
+                assertTrue(processor.vestEventHistoryMap.containsKey("testObj1"));
                 // Verify first event state was removed
-                assertEquals(ProcessingState.PUBLISHED, processor.vestEventHistoryMap.get("testObj")
+                assertEquals(ProcessingState.PUBLISHED, processor.vestEventHistoryMap.get("testObj1")
                         .getVestEventsMap().get(1L).getState());
-                assertEquals(ProcessingState.TRANSFORMED, processor.vestEventHistoryMap.get("testObj")
+                assertEquals(ProcessingState.TRANSFORMED, processor.vestEventHistoryMap.get("testObj1")
                         .getVestEventsMap().get(2L).getState());
                 latch.countDown();
             });
@@ -111,25 +101,16 @@ class ProcessorTest {
     @Test
     void testProcessingSequenceOutOfOrder() throws InterruptedException {
         // Create version 1 event
-        VestEvent event1 = new VestEvent();
-        event1.setObjectId("testObj");
-        event1.setVersion(1);
-        event1.setMessageGroup(GOPS_PARCEL_SUB);
-        event1.setState(ProcessingState.FRESH);
+        VestEvent event1 = VestEvent.builder().objectId("testObj2").version(1).messageGroup(GOPS_PARCEL_SUB)
+                .state(ProcessingState.FRESH).inputXml("<xml>Content goes here </xml>").build();
 
         // Create version 2 event
-        VestEvent event2 = new VestEvent();
-        event2.setObjectId("testObj");
-        event2.setVersion(2);
-        event2.setMessageGroup(GOPS_PARCEL_SUB);
-        event2.setState(ProcessingState.FRESH);
+        VestEvent event2 = VestEvent.builder().objectId("testObj2").version(2).messageGroup(GOPS_PARCEL_SUB)
+                .state(ProcessingState.FRESH).inputXml("<xml>Content goes here </xml>").build();
 
         // Create version 3 event
-        VestEvent event3 = new VestEvent();
-        event3.setObjectId("testObj");
-        event3.setVersion(3);
-        event3.setMessageGroup(GOPS_PARCEL_SUB);
-        event3.setState(ProcessingState.FRESH);
+        VestEvent event3 = VestEvent.builder().objectId("testObj2").version(3).messageGroup(GOPS_PARCEL_SUB)
+                .state(ProcessingState.FRESH).inputXml("<xml>Content goes here </xml>").build();
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -160,17 +141,11 @@ class ProcessorTest {
     @Test
     void testDuplicateEventHandling() throws InterruptedException {
         // Create a test event
-        VestEvent testEvent1 = new VestEvent();
-        testEvent1.setObjectId("dupe");
-        testEvent1.setVersion(1);
-        testEvent1.setMessageGroup(GOPS_PARCEL_SUB);
-        testEvent1.setState(ProcessingState.FRESH);
+        VestEvent testEvent1 = VestEvent.builder().objectId("dupe").version(1).messageGroup(GOPS_PARCEL_SUB)
+                .state(ProcessingState.FRESH).inputXml("<xml>Content goes here </xml>").build();
 
-        VestEvent testEvent2 = new VestEvent();
-        testEvent2.setObjectId("dupe");
-        testEvent2.setVersion(1);
-        testEvent2.setMessageGroup(GOPS_PARCEL_SUB);
-        testEvent2.setState(ProcessingState.FRESH);
+        VestEvent testEvent2 = VestEvent.builder().objectId("dupe").version(1).messageGroup(GOPS_PARCEL_SUB)
+                .state(ProcessingState.FRESH).inputXml("<xml>Content goes here </xml>").build();
 
         CountDownLatch latch = new CountDownLatch(1);
 

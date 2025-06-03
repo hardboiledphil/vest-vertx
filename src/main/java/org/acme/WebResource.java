@@ -31,12 +31,14 @@ public class WebResource {
     public Uni<Void> send(final String objectid, final Integer version) {
 
         // create a vest event
-        VestEvent vestEvent = new VestEvent();
-        vestEvent.setObjectId(objectid);
-        vestEvent.setVersion(version);
-        vestEvent.setInputXml("<test>Sample XML</test>");
-        vestEvent.setCreated(new Date());
-        vestEvent.setState(ProcessingState.FRESH);
+        VestEvent vestEvent = VestEvent.builder()
+                .objectId(objectid)
+                .version(version)
+                .messageGroup(MessageGroup.GOPS_PARCEL_SUB)
+                .state(ProcessingState.FRESH)
+                .inputXml("<test>Sample XML</test>")
+                .created(new Date())
+                .build();
 
         eventBus.send(INCOMING_EVENTS, vestEvent);
         return Uni.createFrom().voidItem();

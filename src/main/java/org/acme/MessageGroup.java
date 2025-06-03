@@ -1,5 +1,8 @@
 package org.acme;
 
+import lombok.Getter;
+
+@Getter
 public enum MessageGroup {
 
     GOPS_PARCEL_SUB,
@@ -7,5 +10,6 @@ public enum MessageGroup {
     EODOS_EOD_CONTROL_PUB,
     GOPS_EOD_CONTROL_SUB,
     GOPS_EOD_STATUS_PUB,
-    EODOS_EOD_STATUS_SUB
+    EODOS_EOD_STATUS_SUB;
+
 }

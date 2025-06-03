@@ -36,15 +36,14 @@ public class Transformer {
             sleep(100);
 
             // Update event with transformed XML
-            event.setTransformedXml(transformedXml);
-            event.setState(ProcessingState.TRANSFORMED);
+            var returnEvent = event.withTransformedXml(transformedXml).withState(ProcessingState.TRANSFORMED);
 
             log.info("Successfully transformed and validated XML for event: {} version: {}",
                     event.getObjectId(), event.getVersion());
 
-            return Uni.createFrom().item(event);
+            return Uni.createFrom().item(returnEvent);
         } catch (Exception e) {
-            log.error("Error processing event: {}", event.getEventId(), e);
+            log.error("Error processing objectId: {} version: {}", event.getObjectId(), event.getVersion(), e);
             return Uni.createFrom().failure(e);
         }
     }

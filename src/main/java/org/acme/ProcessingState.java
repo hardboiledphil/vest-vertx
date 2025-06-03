@@ -1,5 +1,8 @@
 package org.acme;
 
+import lombok.Getter;
+
+@Getter
 public enum ProcessingState {
 
     FRESH,
@@ -10,5 +13,7 @@ public enum ProcessingState {
     PUBLISHED,
     VEST_PROCESSED,
     ACK_RECEIVED,
-    APP_PROCESSED,
+    APP_PROCESSED;
+
+
 }

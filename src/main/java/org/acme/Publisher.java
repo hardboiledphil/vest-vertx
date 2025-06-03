@@ -9,7 +9,6 @@ import jakarta.enterprise.event.Observes;
 import lombok.val;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.Date;
 
 import static java.lang.Thread.sleep;
@@ -28,15 +27,16 @@ public class Publisher {
         // Send the transformed XML to the appropriate queue
         val targetQueue = switch (vestEvent.getMessageGroup()) {
             case GOPS_PARCEL_SUB -> "gopsParcelSubQueue";
-            case GOPS_EOD_CONTROL_SUB-> "gopsEodControlSubQueue";
+            case GOPS_EOD_CONTROL_SUB -> "gopsEodControlSubQueue";
             default -> "defaultQueue";
         };
         val transformedXml = vestEvent.getTransformedXml();
-        vestEvent.setTransformedXml(vestEvent.getTransformedXml());
-        vestEvent.setState(PUBLISHED);
         logger.info("Pretending to send transformed XML to queue: {}", targetQueue);
         sleep(100);
-        return Uni.createFrom().item(vestEvent);
+
+        return Uni.createFrom().item(
+                vestEvent.withState(PUBLISHED)
+                         .withLastUpdated(new Date()));
     }
 
     public void onStart(@Observes StartupEvent event) {
