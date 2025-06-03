@@ -39,7 +39,8 @@ public class Transformer {
             event.setTransformedXml(transformedXml);
             event.setState(ProcessingState.TRANSFORMED);
 
-            log.info("Successfully transformed and validated XML for event: {}", event.getObjectId());
+            log.info("Successfully transformed and validated XML for event: {} version: {}",
+                    event.getObjectId(), event.getVersion());
 
             return Uni.createFrom().item(event);
         } catch (Exception e) {

@@ -11,15 +11,14 @@ import java.util.Date;
 @Setter
 public class VestEvent {
 
-    private String       eventId;
-    private String       objectId;
-    private long         version;
-    private MessageGroup messageGroup;
-    private String       inputXml;
-    private Date         created;
-    private Date         lastUpdated;
+    private String          eventId;
+    private MessageGroup    messageGroup;
+    private String          objectId;
+    private long            version;
     private ProcessingState state;
-    private String       targetQueueName;
-    private String       transformedXml;
+    private String          inputXml;
+    private String          transformedXml;
+    private Date            created;
+    private Date            lastUpdated;
 
 }

@@ -3,6 +3,7 @@ package org.acme;
 public enum ProcessingState {
 
     FRESH,
+    RECEIVED,
     SEQUENCED,
     TRANSFORMED,
     IN_PROCESSING,

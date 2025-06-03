@@ -16,7 +16,7 @@ public class Main implements QuarkusApplication {
     Consumer consumer;
 
     @Inject
-    Sequencer sequencer;
+    Processor processor;
 
     @Inject
     Transformer transformer;
@@ -33,11 +33,11 @@ public class Main implements QuarkusApplication {
         logger.info("Starting application...");
         // The Consumer will be instantiated here due to the @Inject
         logger.info("Consumer initialized {}", consumer != null ? "successfully" : "failed");
-        logger.info("Sequencer initialized {}", sequencer != null ? "successfully" : "failed");
+        logger.info("Processor initialized {}", processor != null ? "successfully" : "failed");
         logger.info("Transformer initialized {}", transformer != null ? "successfully" : "failed");
         logger.info("Publisher initialized {}", publisher != null ? "successfully" : "failed");
-        // trigger the sequencer to start processing
-//        sequencer.triggerSomething();
+        // trigger the processor to start processing
+//        processor.triggerSomething();
         Quarkus.waitForExit();
         return 0;
     }

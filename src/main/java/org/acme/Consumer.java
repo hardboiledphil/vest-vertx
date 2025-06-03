@@ -21,7 +21,7 @@ public class Consumer {
     EventBus eventBus;
 
     public void sendToSequencer() {
-        logger.info("Sending to sequencer");
+        logger.info("Sending to processor");
         
         // create a vest event
         VestEvent vestEvent = new VestEvent();
@@ -31,10 +31,10 @@ public class Consumer {
         vestEvent.setCreated(new Date());
         vestEvent.setState(ProcessingState.FRESH);
 
-        // send the vest event to the sequencer
-        System.out.println("sending message to the sequencer");
+        // send the vest event to the processor
+        System.out.println("sending message to the processor");
         eventBus.send(INCOMING_EVENTS, vestEvent);
-        logger.info("Sent event to sequencer: {}", vestEvent.getObjectId());
+        logger.info("Sent event to processor: {}", vestEvent.getObjectId());
     }
 
     public void onStart(@Observes StartupEvent event) {
