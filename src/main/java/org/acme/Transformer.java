@@ -27,6 +27,8 @@ public class Transformer {
     @Blocking
     public Uni<VestEvent> transform(VestEvent event) {
         try {
+            log.info("About to transform XML for objectId: {} version: {}",
+                    event.getObjectId(), event.getVersion());
             // TODO: Implement actual XSLT transformation here
             String transformedXml = event.getInputXml(); // Placeholder for actual transformation
             
@@ -44,7 +46,7 @@ public class Transformer {
 
             return Uni.createFrom().item(event);
         } catch (Exception e) {
-            log.error("Error processing event: {}", event.getEventId(), e);
+            log.error("Error processing event: {}", event.getId(), e);
             return Uni.createFrom().failure(e);
         }
     }

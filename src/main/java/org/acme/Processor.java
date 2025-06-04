@@ -12,7 +12,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.acme.Channels.INCOMING_EVENTS;
+import static org.acme.Channels.COMPLETED_EVENTS;
+import static org.acme.Channels.INTERNAL_EVENTS;
 import static org.acme.Channels.PUBLISH_EVENTS;
 import static org.acme.Channels.TRANSFORM_EVENTS;
 import static org.acme.ProcessingState.PUBLISHED;
@@ -28,13 +29,13 @@ public class Processor {
 
     final Map<String, VestEventHistory> vestEventHistoryMap = new ConcurrentHashMap<>();
 
-    @ConsumeEvent(INCOMING_EVENTS)
+    @ConsumeEvent(INTERNAL_EVENTS)
     protected void handleIncomingEvent(VestEvent event) {
         logger.info("Received event at Processor: {} version: {} state: {}",
                 event.getObjectId(), event.getVersion(), event.getState());
         try {
             switch (event.getState()) {
-                case FRESH -> initProcessEvent(event);
+                case RECEIVED -> initProcessEvent(event);
                 case TRANSFORMED -> sendToProducer(event);
                 case PUBLISHED -> postPublish(event);
                 case ACK_RECEIVED -> logger.info("Ack received for {} version {} state: {}",
@@ -94,7 +95,7 @@ public class Processor {
                             logger.info("Message received from transform process - send back to processor: {} version: {}",
                                     event1.getObjectId(), event1.getVersion());
                             // put the event back on the bus for further processing
-                            eventBus.send(INCOMING_EVENTS, event1);
+                            eventBus.send(INTERNAL_EVENTS, event1);
                         },
                         failure -> {
                             // handle the failure
@@ -102,85 +103,75 @@ public class Processor {
                                     vestEvent.getObjectId(), failure);
                         });
         // Store the event
-        logger.info("map now contains: {}", vestEventHistoryMap.toString());
+        logger.info("Processor map now contains: {}", vestEventHistoryMap.toString());
         logger.info("Event processed by processor: {} version: {}", vestEvent.getObjectId(), vestEvent.getVersion());
     }
 
-    protected void sendToProducer(VestEvent event) {
+    protected void sendToProducer(VestEvent vestEvent) {
 
         //        // Check if we can process this version
 
-        var lastProcessedVersion = vestEventHistoryMap.get(event.getObjectId()).getLastProcessedVersion();
+        var lastProcessedVersion = vestEventHistoryMap.get(vestEvent.getObjectId()).getLastProcessedVersion();
 
         // if this version is the next one in sequence, we can process it
-        if (event.getVersion() == lastProcessedVersion + 1) {
-            eventBus.request(PUBLISH_EVENTS, event)
+        if (vestEvent.getVersion() == lastProcessedVersion + 1) {
+            eventBus.request(PUBLISH_EVENTS, vestEvent)
                     .subscribe().with(response -> {
                                 // handle the response
-                                VestEvent event1 = (VestEvent) response.body();
+                                VestEvent publishedEvent = (VestEvent) response.body();
                                 logger.info("Message received from producer process - send back to processor: {} version: {}",
-                                        event1.getObjectId(), event1.getVersion());
-                                // get the source vest event from the history map
-                                var vestEvent = vestEventHistoryMap.get(event.getObjectId()).getVestEventsMap().
-                                        get(event1.getVersion());
+                                        publishedEvent.getObjectId(), publishedEvent.getVersion());
+                                // get the source vest vestEvent from the history map
+//                                var publishedEvent = vestEventHistoryMap.get(publishedEvent.getObjectId()).getVestEventsMap().
+//                                        get(publishedEvent.getVersion());
                                 vestEvent.setState(PUBLISHED);
-                                eventBus.send(INCOMING_EVENTS, vestEvent);
+                                eventBus.send(INTERNAL_EVENTS, vestEvent);
                             },
                             failure -> {
                                 // handle the failure
-                                logger.error("Failed to process event in producer: {}", event.getObjectId(), failure);
+                                logger.error("Failed to process vestEvent in producer: {}", vestEvent.getObjectId(), failure);
                             });
 
 //            if (previousEvent == null || previousEvent.getState() != ProcessingState.APP_PROCESSED) {
 //                logger.info("Cannot publish object {} version {} as previous version is not processed",
-//                        event.getObjectId(), event.getVersion());
+//                        vestEvent.getObjectId(), vestEvent.getVersion());
 //                return;
 //            }
         } else {
-            logger.warn("Cannot send event for object {} version {}. Last processed version is {}",
-                    event.getObjectId(), event.getVersion(), lastProcessedVersion);
+            logger.warn("Cannot send vestEvent for object {} version {}. Last processed version is {}",
+                    vestEvent.getObjectId(), vestEvent.getVersion(), lastProcessedVersion);
+            eventBus.send(COMPLETED_EVENTS, vestEvent);
         }
 
     }
 
-    void postPublish(VestEvent event) {
-        logger.info("Post-publish processing for event: {} version: {}", event.getObjectId(), event.getVersion());
+    void postPublish(VestEvent vestEvent) {
+        logger.info("Post-publish processing for event: {} version: {}", vestEvent.getObjectId(), vestEvent.getVersion());
         // if we have previously processed versions for this objectId in the event history map then
         // we can remove them
-        String key = event.getObjectId();
+        String key = vestEvent.getObjectId();
         VestEventHistory vestEventHistory = vestEventHistoryMap.get(key);
         if (vestEventHistory != null) {
             // Update the last processed version
-            vestEventHistory.setLastProcessedVersion(event.getVersion());
+            vestEventHistory.setLastProcessedVersion(vestEvent.getVersion());
             // Remove all previous versions from the history map where they have been published
             // Get list of all previous versions
             vestEventHistory.getVestEventsMap().entrySet().removeIf(version -> {
-                if (version.getValue().getVersion() < event.getVersion() && event.getState() == PUBLISHED) {
+                if (version.getValue().getVersion() < vestEvent.getVersion() && vestEvent.getState() == PUBLISHED) {
                     logger.info("Removing version {} for objectId {} from history", version, key);
                 }
-                return version.getValue().getVersion() < event.getVersion() && event.getState() == PUBLISHED;
+                return version.getValue().getVersion() < vestEvent.getVersion() && vestEvent.getState() == PUBLISHED;
             });
             logger.info("Updated history for objectId {}. Last processed version is now {}",
                     key, vestEventHistory.getLastProcessedVersion());
-            logger.info("map now contains: {}", vestEventHistoryMap.toString());
+            logger.info("Processor map now contains: {}", vestEventHistoryMap.toString());
         } else {
             logger.warn("No history found for objectId {}. Cannot update last processed version.", key);
             return;
         }
 
-        // We should be able to take the next available event from the history map and if it's transformed
-        // then we can publish it
-        vestEventHistory.getVestEventsMap().entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .filter(entry ->
-                        entry.getKey() == vestEventHistory.getLastProcessedVersion() + 1
-                                && entry.getValue().getState() == ProcessingState.TRANSFORMED)
-                .findFirst().ifPresent(nextEvent -> {
-                    logger.info("Sending next event objectid: {} version: {} to producer for publishing",
-                            nextEvent.getValue().getObjectId(), nextEvent.getValue().getVersion());
-                    // Send the next event to the producer so it can trigger publishing
-                    eventBus.send(INCOMING_EVENTS, nextEvent.getValue());
-                });
+        // send the event back to the coordinator so it can trigger the next event
+        eventBus.send(COMPLETED_EVENTS, vestEvent);
     }
 
     void onStart(@Observes StartupEvent event) {

@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Date;
 
-import static org.acme.Channels.INCOMING_EVENTS;
+import static org.acme.Channels.INTERNAL_EVENTS;
 
 @Path("/event/send")
 public class WebResource {
@@ -38,7 +38,7 @@ public class WebResource {
         vestEvent.setCreated(new Date());
         vestEvent.setState(ProcessingState.FRESH);
 
-        eventBus.send(INCOMING_EVENTS, vestEvent);
+        eventBus.send(INTERNAL_EVENTS, vestEvent);
         return Uni.createFrom().voidItem();
     }
 }
