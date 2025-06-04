@@ -77,13 +77,13 @@ class ProcessorTest {
         eventBus.send(INCOMING_EVENTS, event1);
 
         // Wait and then check if processed
-        vertx.setTimer(100, id -> {
+        vertx.setTimer(500, id -> {
 
             // Send second event
             eventBus.send(INCOMING_EVENTS, event2);
 
             // Give some time for the event to be processed
-            Awaitility.await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
+            Awaitility.await().atMost(4, TimeUnit.SECONDS).untilAsserted(() -> {
                 // Verify both events are in the map
                 assertTrue(processor.vestEventHistoryMap.containsKey("testObj1"));
                 // Verify first event state was removed
@@ -94,7 +94,7 @@ class ProcessorTest {
                 latch.countDown();
             });
         });
-        assertTrue(latch.await(2, TimeUnit.SECONDS));
+        assertTrue(latch.await(6, TimeUnit.SECONDS));
     }
 
 

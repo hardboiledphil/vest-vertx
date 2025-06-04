@@ -78,7 +78,8 @@ public class Processor {
 
         // No history for this objectid so create a new entry in the history map for it
         if (!vestEventHistoryMap.containsKey(key)) {
-            logger.info("No history found for objectId {}. Creating new VestEventHistory", key);
+            logger.info("No history found for objectId {}. Creating new VestEventHistory from version {}",
+                    key, vestEvent.getVersion());
             // intentionally creating the hashmap with minimal size.
             var vestEventsMap = HashMap.<Long, VestEvent>newHashMap(1);
             vestEventsMap.put(version, vestEvent);
@@ -89,6 +90,17 @@ public class Processor {
                     .vestEventsMap(vestEventsMap)
                     .build();
             vestEventHistoryMap.put(key, vestEventHistory);
+            vestEventHistoryRepository.persist(vestEventHistory)
+                    .onFailure().invoke(failure ->
+                            logger.error("Failed to save VestEventHistory for objectId {}: version: {}",
+                                    key, version, failure))
+                    .subscribe().with(savedHistory -> {
+                        // Successfully saved the history, now we can proceed with processing
+                        logger.info("SUBSCRIBE WITH called VestEventHistory for {} lastProcessed version: {} triggered by version: {}",
+                                savedHistory.getObjectId(), savedHistory.getLastProcessedVersion(), vestEvent.getVersion());
+                        logger.info("map now contains: {}", vestEventHistoryMap.toString());
+                        eventBus.send(INCOMING_EVENTS, vestEvent);
+                    });
         } else {
             logger.info("Found existing history for objectId {}. Re-using it.", key);
             vestEventHistory = vestEventHistoryMap.get(key);
@@ -98,21 +110,35 @@ public class Processor {
                 return; // Ignore duplicate events
             } else {
                 // Add the new event to the existing history
+                logger.info("Adding new event with version {} to existing history for objectId {}",
+                        version, key);
                 vestEventHistory.getVestEventsMap().put(version, vestEvent);
+                logger.info("Event added {} ", vestEvent.toString());
+                vestEventHistoryRepository.findAndMerge(vestEventHistory)
+                        .onFailure().invoke(failure ->
+                                logger.error("Failed to save VestEventHistory for objectId {}: version: {}",
+                                        key, version, failure))
+                        .subscribe().with(savedHistory -> {
+                            // Successfully saved the history, now we can proceed with processing
+                            logger.info("SUBSCRIBE WITH called VestEventHistory for {} lastProcessed version: {} triggered by version: {}",
+                                    savedHistory.getObjectId(), savedHistory.getLastProcessedVersion(), vestEvent.getVersion());
+                            logger.info("map now contains: {}", vestEventHistoryMap.toString());
+                            eventBus.send(INCOMING_EVENTS, vestEvent);
+                        });
             }
         }
 
-        vestEventHistoryRepository.persist(vestEventHistory)
-                .onFailure().invoke(failure ->
-                        logger.error("Failed to save VestEventHistory for objectId {}: version: {}",
-                                key, version, failure))
-                .subscribe().with(savedHistory -> {
-                    // Successfully saved the history, now we can proceed with processing
-                    logger.info("SUBSCRIBE WITH called VestEventHistory for {} lastProcessed version: {}",
-                            savedHistory.getObjectId(), savedHistory.getLastProcessedVersion());
-                    logger.info("map now contains: {}", vestEventHistoryMap.toString());
-                    eventBus.send(INCOMING_EVENTS, vestEvent);
-                });
+//        vestEventHistoryRepository.persist(vestEventHistory)
+//                .onFailure().invoke(failure ->
+//                        logger.error("Failed to save VestEventHistory for objectId {}: version: {}",
+//                                key, version, failure))
+//                .subscribe().with(savedHistory -> {
+//                    // Successfully saved the history, now we can proceed with processing
+//                    logger.info("SUBSCRIBE WITH called VestEventHistory for {} lastProcessed version: {} triggered by version: {}",
+//                            savedHistory.getObjectId(), savedHistory.getLastProcessedVersion(), vestEvent.getVersion());
+//                    logger.info("map now contains: {}", vestEventHistoryMap.toString());
+//                    eventBus.send(INCOMING_EVENTS, vestEvent);
+//                });
     }
 
     protected void sendToTransformer(VestEvent event) {

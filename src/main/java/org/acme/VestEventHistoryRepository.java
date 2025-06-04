@@ -19,10 +19,13 @@ public class VestEventHistoryRepository implements PanacheRepository<VestEventHi
                     log.info("Found existing VestEventHistory with id: {}", existing.getId());
                     // update only the fields that would have changed since creation
                     existing.setLastProcessedVersion(vestEventHistory.getLastProcessedVersion());
+                    existing.setVestEventsMap(vestEventHistory.getVestEventsMap());
                     // No need to persist - Panache will automatically flush changes
                     return existing;
                 })
-                .onItem().ifNull().fail()
+                .onItem().ifNull().switchTo(() -> {
+                    // If no entity exists, persist a new one
+                    return persist(vestEventHistory);})
                 .chain(this::persist)
                 .invoke(persistedEvent -> log.info("VestEventHistory with id: {} persisted", persistedEvent.getId()));
     }
