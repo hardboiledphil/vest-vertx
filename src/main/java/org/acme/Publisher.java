@@ -34,9 +34,9 @@ public class Publisher {
         logger.info("Pretending to send transformed XML to queue: {}", targetQueue);
         sleep(100);
 
-        return Uni.createFrom().item(
-                vestEvent.withState(PUBLISHED)
-                         .withLastUpdated(new Date()));
+        vestEvent.setState(PUBLISHED);
+        vestEvent.setLastUpdated(new Date());
+        return Uni.createFrom().item(vestEvent);
     }
 
     public void onStart(@Observes StartupEvent event) {

@@ -47,6 +47,7 @@ public class Processor {
         try {
             switch (event.getState()) {
                 case FRESH -> initProcessEvent(event);
+                case RECEIVED -> sendToTransformer(event);
                 case TRANSFORMED -> sendToProducer(event);
                 case PUBLISHED -> postPublish(event);
                 case ACK_RECEIVED -> logger.info("Ack received for {} version {} state: {}",
@@ -63,23 +64,24 @@ public class Processor {
     }
 
     protected void initProcessEvent(VestEvent vestEvent) {
-        logger.info("Processing event: {} version: {}", vestEvent.getObjectId(), vestEvent.getVersion());
+        logger.info("Processing id: {} event: {} version: {}",
+                vestEvent.getId(), vestEvent.getObjectId(), vestEvent.getVersion());
 
         String key = vestEvent.getObjectId();
         Long version = vestEvent.getVersion();
 
         VestEventHistory vestEventHistory;
 
-        var updatedVestEvent = vestEvent.withState(RECEIVED)
-                .withCreated(new Date())
-                .withLastUpdated(new Date());
+        vestEvent.setState(RECEIVED);
+        vestEvent.setCreated(new Date());
+        vestEvent.setLastUpdated(new Date());
 
         // No history for this objectid so create a new entry in the history map for it
         if (!vestEventHistoryMap.containsKey(key)) {
             logger.info("No history found for objectId {}. Creating new VestEventHistory", key);
             // intentionally creating the hashmap with minimal size.
             var vestEventsMap = HashMap.<Long, VestEvent>newHashMap(1);
-            vestEventsMap.put(version, updatedVestEvent);
+            vestEventsMap.put(version, vestEvent);
             vestEventHistory = VestEventHistory.builder()
                     .objectId(key)
                     .messageGroup(MessageGroup.GOPS_PARCEL_SUB)
@@ -96,7 +98,7 @@ public class Processor {
                 return; // Ignore duplicate events
             } else {
                 // Add the new event to the existing history
-                vestEventHistory.getVestEventsMap().put(version, updatedVestEvent);
+                vestEventHistory.getVestEventsMap().put(version, vestEvent);
             }
         }
 
@@ -108,30 +110,37 @@ public class Processor {
                     // Successfully saved the history, now we can proceed with processing
                     logger.info("SUBSCRIBE WITH called VestEventHistory for {} lastProcessed version: {}",
                             savedHistory.getObjectId(), savedHistory.getLastProcessedVersion());
-                    // make a request to transformer
-                    eventBus.request(TRANSFORM_EVENTS, updatedVestEvent)
-                            .onItem().transform(result -> {
-                                // handle the response
-                                VestEvent transformedEvent = (VestEvent) result.body();
-                                logger.info("Transformed event: {} version: {}",
-                                        transformedEvent.getObjectId(), transformedEvent.getVersion());
-                                // Update the state to TRANSFORMED
-                                return transformedEvent.withState(ProcessingState.TRANSFORMED)
-                                        .withLastUpdated(new Date());
-                            })
-                            .onItem().transformToUni(updatedEvent -> vestEventRepository.findAndMerge(updatedEvent))
-                            .onItem().transformToUni(updatedEvent -> vestEventHistoryRepository.findAndMerge(updatedEvent))
-                            .subscribe().with(savedEvent -> {
-                                // handle the response
-                                logger.info("VestEvent {} version {} saved after transformation",
-                                        savedEvent.getObjectId(), savedEvent.getVersion());
+                    logger.info("map now contains: {}", vestEventHistoryMap.toString());
+                    eventBus.send(INCOMING_EVENTS, vestEvent);
+                });
+    }
 
+    protected void sendToTransformer(VestEvent event) {
+        logger.info("Sending event to transformer: {} version: {}", event.getObjectId(), event.getVersion());
 
-                                // put the event back on the bus for further processing
-                                eventBus.send(INCOMING_EVENTS, savedEvent);
-                                logger.info("map now contains: {}", vestEventHistoryMap.toString());
-                                logger.info("Event processed by processor: {} version: {}", vestEvent.getObjectId(), vestEvent.getVersion());
-                            });
+        // make a request to transformer
+        eventBus.request(TRANSFORM_EVENTS, event)
+                .onItem().transform(result -> {
+                    // handle the response
+                    VestEvent transformedEvent = (VestEvent) result.body();
+                    logger.info("Transformed id: {} event: {} version: {}",
+                            transformedEvent.getId(), transformedEvent.getObjectId(), transformedEvent.getVersion());
+                    // Update the state to TRANSFORMED
+                    transformedEvent.setState(ProcessingState.TRANSFORMED);
+                    transformedEvent.setLastUpdated(new Date());
+                    return transformedEvent;
+                })
+                .onItem().transformToUni(updatedEvent -> vestEventRepository.findAndMerge(updatedEvent))
+                .subscribe().with(savedEvent -> {
+                    // handle the response
+                    logger.info("VestEvent id {} objectId {} version {} saved after transformation",
+                            savedEvent.getId(), savedEvent.getObjectId(), savedEvent.getVersion());
+
+                    // put the event back on the bus for further processing
+                    eventBus.send(INCOMING_EVENTS, savedEvent);
+                    logger.info("map now contains: {}", vestEventHistoryMap.toString());
+                    logger.info("Event processed by processor: id: {} {} version: {}",
+                            savedEvent.getId(), savedEvent.getObjectId(), savedEvent.getVersion());
                 });
     }
 
@@ -148,16 +157,25 @@ public class Processor {
                     .onFailure().invoke(failure ->
                             logger.error("Failed to send event to producer for objectId {} version {}",
                                     event.getObjectId(), event.getVersion(), failure))
-                    // on success send the event back to the processor for it's next step
-                    .subscribe().with(response -> {
-                                // handle the response
-                                VestEvent sentEvent = (VestEvent) response.body();
-                                logger.info("Message received from producer process - send back to processor: {} version: {}",
-                                        sentEvent.getObjectId(), sentEvent.getVersion());
-                                // get the source vest event from the history map
-                                var vestEvent = vestEventHistoryMap.get(event.getObjectId()).getVestEventsMap().
-                                        get(sentEvent.getVersion());
-                                eventBus.send(INCOMING_EVENTS, vestEvent.withState(PUBLISHED));
+                    .onItem().transform(result -> {
+                        // handle the response
+                        VestEvent sentEvent = (VestEvent) result.body();
+                        logger.info("Sent id: {} event: {} version: {}",
+                                sentEvent.getId(), sentEvent.getObjectId(), sentEvent.getVersion());
+                        // Update the state to PUBLISHED
+                        sentEvent.setState(ProcessingState.PUBLISHED);
+                        sentEvent.setLastUpdated(new Date());
+                        return sentEvent;
+                    })
+                    .onItem().transformToUni(updatedEvent -> vestEventRepository.findAndMerge(updatedEvent))
+                    // on success send the event back to the processor for its next step
+                    .subscribe().with(savedEvent -> {
+                                logger.info("Message received from producer process - send back to processor: id: {} objectId: {} version: {} status: {}",
+                                        savedEvent.getId(), savedEvent.getObjectId(), savedEvent.getVersion(), savedEvent.getState());
+                                logger.info("map now contains: {}", vestEventHistoryMap.toString());
+                                VestEventHistory vestEventHistory = vestEventHistoryMap.get(savedEvent.getObjectId());
+                                vestEventHistory.getVestEventsMap().put(savedEvent.getVersion(), savedEvent);
+                                eventBus.send(INCOMING_EVENTS, savedEvent);
                             },
                             failure -> {
                                 // handle the failure
@@ -186,6 +204,13 @@ public class Processor {
                 }
                 return version.getValue().getVersion() < event.getVersion() && event.getState() == PUBLISHED;
             });
+
+            vestEventHistoryRepository.findAndMerge(vestEventHistory)
+                    .subscribe().with(
+                            success -> logger.info("Successfully updated VestEventHistory for objectId {}",
+                                    key),
+                            failure -> logger.error("Failed to update VestEventHistory for objectId {}",
+                                    key, failure));
             logger.info("Updated history for objectId {}. Last processed version is now {}",
                     key, vestEventHistory.getLastProcessedVersion());
             logger.info("map now contains: {}", vestEventHistoryMap.toString());
@@ -214,8 +239,9 @@ public class Processor {
         // Update the state of the event to APP_PROCESSED
         VestEventHistory vestEventHistory = vestEventHistoryMap.get(vestEvent.getObjectId());
         if (vestEventHistory != null) {
-            VestEvent vestEventLatest = vestEventHistory.getVestEventsMap().get(vestEvent.getVersion());
-            vestEventRepository.persistAndFlush(vestEventLatest.withState(ProcessingState.APP_PROCESSED))
+//            VestEvent vestEventLatest = vestEventHistory.getVestEventsMap().get(vestEvent.getVersion());
+            vestEvent.setState(ProcessingState.APP_PROCESSED);
+            vestEventRepository.findAndMerge(vestEvent)
                     .subscribe().with(
                             success -> logger.info("Successfully marked event as processed: {} version: {}",
                                     vestEvent.getObjectId(), vestEvent.getVersion()),
