@@ -103,10 +103,11 @@ public class Consumer {
         // so we need to find the first event that is PUBLISHED (or is v1) and store the version.
         // If the next event version is TRANSFORMED then we can send it to the processor
         var lastProcessed = 0L;
-        for (Map.Entry<Tuple2<String, Long>, VestEvent> vestEvent : eventsForObject) {
+        for (Map.Entry<Tuple2<String, Long>, VestEvent> vestEventEntry : eventsForObject) {
             logger.info("Step 2) VestEvent in map: objectId: {} version: {} state: {}",
-                    vestEvent.getKey().getItem1(), vestEvent.getKey().getItem2(), vestEvent.getValue().getState());
-            var event = vestEvent.getValue();
+                    vestEventEntry.getKey().getItem1(), vestEventEntry.getKey().getItem2(),
+                    vestEventEntry.getValue().getState());
+            var event = vestEventEntry.getValue();
             if (event.getState() == ProcessingState.PUBLISHED) {
                 // if we have a PUBLISHED event then we can send the next TRANSFORMED event
                 logger.info("Found PUBLISHED event for objectId: {} version: {}",

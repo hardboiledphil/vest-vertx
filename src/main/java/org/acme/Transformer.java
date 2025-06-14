@@ -31,7 +31,9 @@ public class Transformer {
                     event.getObjectId(), event.getVersion());
             // TODO: Implement actual XSLT transformation here
             String transformedXml = event.getInputXml(); // Placeholder for actual transformation
-            
+
+            sleep(100);
+
             // Validate against XSD
             validateXml(transformedXml);
 
